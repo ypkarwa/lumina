@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/auth-context";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { auth, setupRecaptcha } from "@/lib/firebase";
+import { signInWithPhoneNumber } from "firebase/auth";
 
 export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -17,27 +19,69 @@ export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
 
+  // Initialize Recaptcha on mount
+  useEffect(() => {
+    // Only set up if we are on the phone step
+    if (step === 'PHONE') {
+      try {
+        setupRecaptcha('recaptcha-container');
+      } catch (e) {
+        console.error("Recaptcha setup error:", e);
+      }
+    }
+  }, [step]);
+
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      const verifier = window.recaptchaVerifier;
+      // Format phone number to E.164 (e.g., +15555555555)
+      // Assuming user types "+1 (555)..." or just "555..."
+      // Basic cleanup:
+      const formattedPhone = phoneNumber.startsWith('+') 
+        ? phoneNumber 
+        : `+1${phoneNumber}`; // Default to US/Canada if no code provided (adjust as needed)
+
+      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, verifier);
+      window.confirmationResult = confirmationResult;
+      
       setStep("OTP");
-    }, 1500);
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      alert("Failed to send OTP. Please check the number and try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate Verification
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    await login(phoneNumber);
-    setIsLoading(false);
-    
-    // Redirect to Onboarding
-    router.push("/onboarding");
+
+    try {
+      // 1. Verify with Firebase
+      const result = await window.confirmationResult.confirm(otp);
+      const firebaseUser = result.user;
+      
+      console.log("Firebase Auth Success:", firebaseUser.phoneNumber);
+
+      // 2. Sync/Login with our Backend (Postgres)
+      // This calls our Server Action via AuthContext
+      const success = await login(firebaseUser.phoneNumber!);
+      
+      if (success) {
+        router.push("/onboarding");
+      } else {
+        alert("Login failed on server. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      alert("Invalid Code. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -81,13 +125,17 @@ export default function LoginPage() {
                   className="text-lg py-6"
                 />
               </div>
+              
+              {/* Invisible Recaptcha Container */}
+              <div id="recaptcha-container"></div>
+
               <Button type="submit" className="w-full h-12 text-lg" disabled={isLoading}>
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Send Code"}
                 {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleVerify} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="otp">One-Time Password</Label>
                 <Input 
@@ -125,4 +173,3 @@ export default function LoginPage() {
     </main>
   );
 }
-
