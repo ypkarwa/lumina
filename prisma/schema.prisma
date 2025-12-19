@@ -8,7 +8,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("POSTGRES_PRISMA_URL") // Uses connection pooling
-  directUrl = env("POSTGRES_URL_NON_POOLING") // Uses a direct connection
+  directUrl = env("POSTGRES_PRISMA_POSTGRES_URL_NON_POOLING") // Uses a direct connection
 }
 
 model User {
@@ -52,6 +52,7 @@ model Message {
   availableAt DateTime // createdAt + 1 hour
 
   isPublic    Boolean  @default(false) // "Wall of Growth"
+  isAnonymous Boolean  @default(false) // Added for anonymous sending
   
   ratings     Rating[]
   comments    Comment[]

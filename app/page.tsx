@@ -9,12 +9,16 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Check, Send, AlertCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/app/context/auth-context";
 import { useRouter } from "next/navigation";
+import { sendMessageAction } from "./actions";
 
 export default function Home() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [isAware, setIsAware] = useState(false);
   const [messageType, setMessageType] = useState("praise");
+  const [isSending, setIsSending] = useState(false);
+  const [isSent, setIsSent] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -22,9 +26,33 @@ export default function Home() {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    alert("Message sent to the cooling-off tank.");
+    if (!user) return;
+    
+    setIsSending(true);
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      await sendMessageAction({
+        senderId: user.id,
+        recipientPhone: formData.get("phone") as string,
+        content: formData.get("message") as string,
+        actionPoint: formData.get("action") as string,
+        type: messageType,
+        isAnonymous: isAnonymous,
+      });
+      setIsSent(true);
+      // Reset form or redirect
+      setTimeout(() => setIsSent(false), 3000);
+      (e.target as HTMLFormElement).reset();
+      setIsAware(false);
+    } catch (error) {
+      console.error("Failed to send:", error);
+      alert("Failed to send message. Please try again.");
+    } finally {
+      setIsSending(false);
+    }
   };
 
   if (isLoading) {
@@ -36,6 +64,27 @@ export default function Home() {
   }
 
   if (!isAuthenticated) return null;
+
+  if (isSent) {
+    return (
+      <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+         <Card className="w-full max-w-md shadow-xl border-green-200 bg-green-50">
+           <CardContent className="pt-10 pb-10 flex flex-col items-center text-center space-y-4">
+             <div className="bg-green-100 p-4 rounded-full">
+               <Check className="w-12 h-12 text-green-600" />
+             </div>
+             <h2 className="text-2xl font-bold text-green-800">Sent to the Tank!</h2>
+             <p className="text-green-700">
+               Your message is cooling off. It will be delivered in 1 hour if you don't retract it.
+             </p>
+             <Button onClick={() => setIsSent(false)} variant="outline" className="mt-4 border-green-600 text-green-700 hover:bg-green-100">
+               Send Another
+             </Button>
+           </CardContent>
+         </Card>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 md:p-8 pb-24">
@@ -70,11 +119,11 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Recipient Name</Label>
-                <Input id="name" placeholder="e.g. Alex" required />
+                <Input name="name" id="name" placeholder="e.g. Alex" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
-                <Input id="phone" type="tel" placeholder="+1 (555) 000-0000" required />
+                <Input name="phone" id="phone" type="tel" placeholder="+1 (555) 000-0000" required />
               </div>
             </div>
 
@@ -83,6 +132,7 @@ export default function Home() {
               <Label htmlFor="type">Message Type</Label>
               <select 
                 id="type"
+                name="type"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 value={messageType}
                 onChange={(e) => setMessageType(e.target.value)}
@@ -103,6 +153,7 @@ export default function Home() {
               <Label htmlFor="message">The Message</Label>
               <Textarea 
                 id="message" 
+                name="message"
                 placeholder={
                   messageType === 'feedback' 
                     ? "I noticed [Behavior]. I believe it affects [Impact]..." 
@@ -121,6 +172,7 @@ export default function Home() {
               </Label>
               <Input 
                 id="action" 
+                name="action"
                 placeholder={
                   messageType === 'feedback' 
                     ? "Try pausing for 3 seconds before responding..." 
@@ -135,6 +187,8 @@ export default function Home() {
               <input 
                 type="checkbox" 
                 id="anonymous" 
+                checked={isAnonymous}
+                onChange={(e) => setIsAnonymous(e.target.checked)}
                 className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               />
               <label htmlFor="anonymous" className="text-sm font-medium text-slate-700 cursor-pointer">
@@ -167,9 +221,9 @@ export default function Home() {
             <Button 
               type="submit" 
               className="w-full text-lg h-12" 
-              disabled={!isAware}
+              disabled={!isAware || isSending}
             >
-              {isAware ? "Send to Cooling-Off Tank" : "Confirm Intent to Send"}
+              {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : "Confirm Intent to Send"}
             </Button>
 
           </form>

@@ -2,17 +2,18 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { loginUserAction, updateUserNameAction } from "@/app/actions";
 
 interface User {
   id: string;
   phoneNumber: string;
-  name?: string;
+  name?: string | null; // Prisma can return null
 }
 
 interface AuthContextType {
   user: User | null;
   login: (phoneNumber: string) => Promise<boolean>;
-  updateName: (name: string) => void;
+  updateName: (name: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -36,25 +37,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (phoneNumber: string) => {
     setIsLoading(true);
-    const mockUser = {
-      id: "user-" + phoneNumber.replace(/\D/g, ''),
-      phoneNumber,
-    };
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    setUser(mockUser);
-    localStorage.setItem("lumina_user", JSON.stringify(mockUser));
-    setIsLoading(false);
-    return true; 
+    try {
+      // Call Server Action
+      const dbUser = await loginUserAction(phoneNumber);
+      
+      if (dbUser) {
+        setUser(dbUser);
+        localStorage.setItem("lumina_user", JSON.stringify(dbUser));
+        setIsLoading(false);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Login failed:", error);
+      setIsLoading(false);
+      return false;
+    }
   };
 
-  const updateName = (name: string) => {
+  const updateName = async (name: string) => {
     if (user) {
-      const updatedUser = { ...user, name };
-      setUser(updatedUser);
-      localStorage.setItem("lumina_user", JSON.stringify(updatedUser));
+      try {
+        const updatedUser = await updateUserNameAction(user.id, name);
+        setUser(updatedUser);
+        localStorage.setItem("lumina_user", JSON.stringify(updatedUser));
+      } catch (error) {
+        console.error("Failed to update name:", error);
+      }
     }
   };
 
