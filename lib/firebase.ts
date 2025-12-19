@@ -11,17 +11,30 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Debug log to check if variables are loaded (only in dev/browser console)
+console.log("Firebase Config Status:", {
+  apiKey: firebaseConfig.apiKey ? "Loaded" : "Missing",
+  authDomain: firebaseConfig.authDomain ? "Loaded" : "Missing",
+  projectId: firebaseConfig.projectId
+});
+
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 
 // Helper to set up Recaptcha
 export function setupRecaptcha(elementId: string) {
+  if (typeof window === 'undefined') return;
+
   if (!window.recaptchaVerifier) {
     window.recaptchaVerifier = new RecaptchaVerifier(auth, elementId, {
       'size': 'invisible',
       'callback': () => {
         // reCAPTCHA solved, allow signInWithPhoneNumber.
+        console.log("Recaptcha resolved");
+      },
+      'expired-callback': () => {
+         console.log("Recaptcha expired");
       }
     });
   }
@@ -35,4 +48,3 @@ declare global {
     confirmationResult: any;
   }
 }
-
