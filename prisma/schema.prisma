@@ -1,0 +1,93 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_PRISMA_URL") // Uses connection pooling
+  directUrl = env("POSTGRES_URL_NON_POOLING") // Uses a direct connection
+}
+
+model User {
+  id           String   @id @default(uuid())
+  phoneNumber  String   @unique
+  name         String?
+  createdAt    DateTime @default(now())
+  
+  // Scores
+  valueScore   Int      @default(0) // Gold Score (from Feedback/Advice)
+  loveScore    Int      @default(0) // Love Score (from Praises)
+
+  // Monthly Stamp Quota (Resets monthly)
+  praiseStamps   Int    @default(2)
+  feedbackStamps Int    @default(1)
+  adviceStamps   Int    @default(1)
+
+  // Relations
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  comments         Comment[]
+  agrees           Agree[]
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  content     String
+  actionPoint String?  // "Suggested Next Step"
+  type        String   // PRAISE, FEEDBACK, ADVICE
+  
+  senderId    String
+  sender      User     @relation("SentMessages", fields: [senderId], references: [id])
+  
+  recipientPhone String
+  recipientId    String? // Optional until recipient joins
+  recipient      User?   @relation("ReceivedMessages", fields: [recipientId], references: [id])
+
+  // Trust & Safety
+  status      String   @default("COOLING_OFF") // COOLING_OFF, DELIVERED, RETRACTED
+  createdAt   DateTime @default(now())
+  availableAt DateTime // createdAt + 1 hour
+
+  isPublic    Boolean  @default(false) // "Wall of Growth"
+  
+  ratings     Rating[]
+  comments    Comment[]
+  agrees      Agree[]
+}
+
+model Rating {
+  id        String   @id @default(uuid())
+  score     Int      // 1-5
+  type      String   // VALUE or LOVE
+  
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id])
+}
+
+model Agree {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id])
+
+  @@unique([userId, messageId]) // One agree per user per message
+}
