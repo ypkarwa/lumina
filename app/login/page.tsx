@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/context/auth-context";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { ArrowRight, Loader2, Sparkles } from "lucide-react";
-import { auth, setupRecaptcha } from "@/lib/firebase";
-import { signInWithPhoneNumber } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 
 export default function LoginPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -18,16 +18,43 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
+  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
   // Initialize Recaptcha on mount
   useEffect(() => {
     // Only set up if we are on the phone step
-    if (step === 'PHONE') {
+    if (step === 'PHONE' && typeof window !== 'undefined') {
       try {
-        setupRecaptcha('recaptcha-container');
+        if (!recaptchaVerifierRef.current) {
+            // Clear any existing instance to be safe
+            if (window.recaptchaVerifier) {
+                window.recaptchaVerifier.clear();
+            }
+            
+            recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                'size': 'invisible',
+                'callback': () => {
+                   // reCAPTCHA solved
+                   console.log("Recaptcha resolved");
+                }
+            });
+            window.recaptchaVerifier = recaptchaVerifierRef.current;
+        }
       } catch (e) {
         console.error("Recaptcha setup error:", e);
       }
+    }
+    
+    return () => {
+        // Cleanup on unmount or step change
+        if (recaptchaVerifierRef.current) {
+            try {
+                recaptchaVerifierRef.current.clear();
+                recaptchaVerifierRef.current = null;
+            } catch (e) {
+                console.error("Failed to clear recaptcha", e);
+            }
+        }
     }
   }, [step]);
 
@@ -36,21 +63,32 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const verifier = window.recaptchaVerifier;
+      if (!recaptchaVerifierRef.current) {
+        throw new Error("Recaptcha not initialized");
+      }
+
       // Format phone number to E.164 (e.g., +15555555555)
-      // Assuming user types "+1 (555)..." or just "555..."
-      // Basic cleanup:
       const formattedPhone = phoneNumber.startsWith('+') 
         ? phoneNumber 
-        : `+1${phoneNumber}`; // Default to US/Canada if no code provided (adjust as needed)
+        : `+1${phoneNumber}`; 
 
-      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, verifier);
+      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifierRef.current);
       window.confirmationResult = confirmationResult;
       
       setStep("OTP");
     } catch (error) {
       console.error("Error sending OTP:", error);
       alert("Failed to send OTP. Please check the number and try again.");
+      
+      // If error happens, force reset recaptcha for retry
+      if (recaptchaVerifierRef.current) {
+          recaptchaVerifierRef.current.clear();
+          recaptchaVerifierRef.current = null;
+          // Re-trigger effect? The effect depends on 'step', which hasn't changed.
+          // We might need to force a re-render or handle it better. 
+          // For now, page refresh is the fallback, but let's try to recover.
+          window.location.reload(); 
+      }
     } finally {
       setIsLoading(false);
     }
@@ -68,7 +106,6 @@ export default function LoginPage() {
       console.log("Firebase Auth Success:", firebaseUser.phoneNumber);
 
       // 2. Sync/Login with our Backend (Postgres)
-      // This calls our Server Action via AuthContext
       const success = await login(firebaseUser.phoneNumber!);
       
       if (success) {
@@ -126,7 +163,7 @@ export default function LoginPage() {
                 />
               </div>
               
-              {/* Invisible Recaptcha Container */}
+              {/* Invisible Recaptcha Container - MUST be present when setupRecaptcha is called */}
               <div id="recaptcha-container"></div>
 
               <Button type="submit" className="w-full h-12 text-lg" disabled={isLoading}>
