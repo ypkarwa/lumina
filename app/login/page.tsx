@@ -12,6 +12,7 @@ import { auth } from "@/lib/firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 
 export default function LoginPage() {
+  const [countryCode, setCountryCode] = useState("+91");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"PHONE" | "OTP">("PHONE");
@@ -22,7 +23,6 @@ export default function LoginPage() {
 
   // Initialize Recaptcha on mount
   useEffect(() => {
-    // Only set up if we are on the phone step
     if (step === 'PHONE' && typeof window !== 'undefined') {
       try {
         if (!recaptchaVerifierRef.current) {
@@ -34,7 +34,6 @@ export default function LoginPage() {
             recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
                 'size': 'invisible',
                 'callback': () => {
-                   // reCAPTCHA solved
                    console.log("Recaptcha resolved");
                 }
             });
@@ -46,7 +45,6 @@ export default function LoginPage() {
     }
     
     return () => {
-        // Cleanup on unmount or step change
         if (recaptchaVerifierRef.current) {
             try {
                 recaptchaVerifierRef.current.clear();
@@ -67,26 +65,21 @@ export default function LoginPage() {
         throw new Error("Recaptcha not initialized");
       }
 
-      // Format phone number to E.164 (e.g., +15555555555)
-      const formattedPhone = phoneNumber.startsWith('+') 
-        ? phoneNumber 
-        : `+1${phoneNumber}`; 
+      const cleanPhone = phoneNumber.replace(/\D/g, '');
+      const fullPhoneNumber = `${countryCode}${cleanPhone}`;
 
-      const confirmationResult = await signInWithPhoneNumber(auth, formattedPhone, recaptchaVerifierRef.current);
+      const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
       window.confirmationResult = confirmationResult;
       
       setStep("OTP");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error sending OTP:", error);
-      alert("Failed to send OTP. Please check the number and try again.");
+      // Detailed error alert
+      alert(`Failed to send OTP: ${error.message || "Check console"}`);
       
-      // If error happens, force reset recaptcha for retry
       if (recaptchaVerifierRef.current) {
           recaptchaVerifierRef.current.clear();
           recaptchaVerifierRef.current = null;
-          // Re-trigger effect? The effect depends on 'step', which hasn't changed.
-          // We might need to force a re-render or handle it better. 
-          // For now, page refresh is the fallback, but let's try to recover.
           window.location.reload(); 
       }
     } finally {
@@ -99,13 +92,9 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // 1. Verify with Firebase
       const result = await window.confirmationResult.confirm(otp);
       const firebaseUser = result.user;
       
-      console.log("Firebase Auth Success:", firebaseUser.phoneNumber);
-
-      // 2. Sync/Login with our Backend (Postgres)
       const success = await login(firebaseUser.phoneNumber!);
       
       if (success) {
@@ -143,7 +132,7 @@ export default function LoginPage() {
           <CardDescription className="text-center">
             {step === "PHONE" 
               ? "Enter your mobile number to begin." 
-              : `Enter the code sent to ${phoneNumber}`
+              : `Enter the code sent to ${countryCode} ${phoneNumber}`
             }
           </CardDescription>
         </CardHeader>
@@ -152,18 +141,29 @@ export default function LoginPage() {
             <form onSubmit={handleSendOtp} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="phone">Mobile Number</Label>
-                <Input 
-                  id="phone" 
-                  type="tel" 
-                  placeholder="+1 (555) 000-0000" 
-                  required
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="text-lg py-6"
-                />
+                <div className="flex gap-2">
+                  <select 
+                    className="flex h-12 w-[80px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                  >
+                    <option value="+91">+91</option>
+                    <option value="+1">+1</option>
+                    <option value="+44">+44</option>
+                    {/* Add others */}
+                  </select>
+                  <Input 
+                    id="phone" 
+                    type="tel" 
+                    placeholder="9876543210" 
+                    required
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="flex-1 text-lg h-12"
+                  />
+                </div>
               </div>
               
-              {/* Invisible Recaptcha Container - MUST be present when setupRecaptcha is called */}
               <div id="recaptcha-container"></div>
 
               <Button type="submit" className="w-full h-12 text-lg" disabled={isLoading}>
