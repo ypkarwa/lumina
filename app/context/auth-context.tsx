@@ -12,7 +12,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (phoneNumber: string) => Promise<boolean>;
+  login: (phoneNumber: string) => Promise<User | null>;
   updateName: (name: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
@@ -46,13 +46,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(dbUser);
         localStorage.setItem("lumina_user", JSON.stringify(dbUser));
         setIsLoading(false);
-        return true;
+        return dbUser;
       }
-      return false;
+      return null;
     } catch (error) {
       console.error("Login failed:", error);
       setIsLoading(false);
-      return false;
+      return null;
     }
   };
 

@@ -19,6 +19,10 @@ export default function Home() {
   const [isSending, setIsSending] = useState(false);
   const [isSent, setIsSent] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
+  
+  // Phone Inputs
+  const [countryCode, setCountryCode] = useState("+91");
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -33,18 +37,22 @@ export default function Home() {
     setIsSending(true);
     const formData = new FormData(e.currentTarget);
     
+    // Combine phone
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    const fullRecipientPhone = `${countryCode}${cleanPhone}`;
+
     try {
       await sendMessageAction({
         senderId: user.id,
-        recipientPhone: formData.get("phone") as string,
+        recipientPhone: fullRecipientPhone,
         content: formData.get("message") as string,
         actionPoint: formData.get("action") as string,
         type: messageType,
         isAnonymous: isAnonymous,
       });
       setIsSent(true);
-      // Reset form or redirect
       setTimeout(() => setIsSent(false), 3000);
+      setPhoneNumber("");
       (e.target as HTMLFormElement).reset();
       setIsAware(false);
     } catch (error) {
@@ -89,14 +97,21 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 md:p-8 pb-24">
       
-      {/* The Core Philosophy Quote */}
+      {/* The Core Philosophy Quote OR Welcome Message */}
       <div className="max-w-4xl text-center mb-12 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
-          "Never attribute to malice what can be <br className="hidden md:block"/>
-          adequately explained by <span className="text-indigo-600">stupidity</span>."
-        </h1>
+        {user?.name ? (
+            <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
+              Welcome back, <span className="text-indigo-600">{user.name}</span>.
+            </h1>
+        ) : (
+            <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
+            "Never attribute to malice what can be <br className="hidden md:block"/>
+            adequately explained by <span className="text-indigo-600">stupidity</span>."
+            </h1>
+        )}
+        
         <p className="text-muted-foreground text-lg italic">
-          — Hanlon's Razor (and the spirit of Lumina)
+          — {user?.name ? "Ready to light up some blind spots?" : "Hanlon's Razor (and the spirit of Lumina)"}
         </p>
       </div>
 
@@ -123,7 +138,27 @@ export default function Home() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
-                <Input name="phone" id="phone" type="tel" placeholder="+1 (555) 000-0000" required />
+                <div className="flex gap-2">
+                  <select 
+                    className="flex h-10 w-[80px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                  >
+                    <option value="+91">+91</option>
+                    <option value="+1">+1</option>
+                    <option value="+44">+44</option>
+                    {/* Add others */}
+                  </select>
+                  <Input 
+                    id="phone" 
+                    type="tel" 
+                    placeholder="9876543210" 
+                    required
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="flex-1"
+                  />
+                </div>
               </div>
             </div>
 

@@ -95,10 +95,15 @@ export default function LoginPage() {
       const result = await window.confirmationResult.confirm(otp);
       const firebaseUser = result.user;
       
-      const success = await login(firebaseUser.phoneNumber!);
+      // Login and check if user has name
+      const user = await login(firebaseUser.phoneNumber!);
       
-      if (success) {
-        router.push("/onboarding");
+      if (user) {
+        if (user.name) {
+            router.push("/"); // Go to Dashboard if name exists
+        } else {
+            router.push("/onboarding"); // Go to Onboarding if new user
+        }
       } else {
         alert("Login failed on server. Please try again.");
       }
