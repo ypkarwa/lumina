@@ -6,7 +6,6 @@ import { revalidatePath } from "next/cache";
 // --- User Actions ---
 
 export async function loginUserAction(phoneNumber: string) {
-  // Find or create user
   let user = await prisma.user.findUnique({
     where: { phoneNumber },
   });
@@ -33,7 +32,7 @@ export async function getUserStatsAction(userId: string) {
     where: { id: userId },
     select: {
       valueScore: true,
-      loveScore: true,
+      spiritScore: true,
       name: true,
       phoneNumber: true,
     }
@@ -44,7 +43,7 @@ export async function getUserStatsAction(userId: string) {
 export async function searchUserAction(phoneNumber: string) {
   return await prisma.user.findUnique({
     where: { phoneNumber },
-    select: { id: true, name: true, phoneNumber: true, valueScore: true, loveScore: true }
+    select: { id: true, name: true, phoneNumber: true, valueScore: true, spiritScore: true }
   });
 }
 
@@ -58,7 +57,6 @@ export async function sendMessageAction(data: {
   type: string;
   isAnonymous?: boolean;
 }) {
-  // 1. Check if recipient exists, if so link them
   let recipient = await prisma.user.findUnique({
     where: { phoneNumber: data.recipientPhone },
   });
@@ -66,7 +64,6 @@ export async function sendMessageAction(data: {
   // Calculate availability time (1 hour from now)
   const availableAt = new Date(Date.now() + 60 * 60 * 1000); 
 
-  // 2. Create Message
   const message = await prisma.message.create({
     data: {
       content: data.content,
@@ -74,35 +71,67 @@ export async function sendMessageAction(data: {
       type: data.type,
       senderId: data.senderId,
       recipientPhone: data.recipientPhone,
-      recipientId: recipient?.id, // Link if user exists
+      recipientId: recipient?.id,
       availableAt: availableAt,
-      // For now, we simulate "isAnonymous" by not sending sender name in UI, 
-      // but DB stores relation. We can add an isAnonymous flag to schema if strictly needed,
-      // but for now we'll handle it in UI logic or add a comment field.
-      // Wait, schema doesn't have isAnonymous. I should probably add it or hack it.
-      // I'll add it to schema in next step if needed, but user asked for "make everything real".
-      // I'll update schema to support isAnonymous properly.
+      isAnonymous: data.isAnonymous,
     },
   });
 
   return message;
 }
 
-export async function getMyMessagesAction(userId: string) {
-  const messages = await prisma.message.findMany({
+export async function getIncomingMessagesAction(userId: string) {
+  return await prisma.message.findMany({
     where: { recipientId: userId },
     include: {
       sender: { select: { name: true, phoneNumber: true } },
-      agrees: true,
-      comments: true,
       ratings: true,
     },
     orderBy: { createdAt: 'desc' },
   });
-  
-  // Client needs to filter by availableAt for "Cooling Off" logic
-  // But we can return all and let UI handle the blur based on status/time.
-  return messages;
+}
+
+export async function getMyMessagesAction(userId: string) {
+  return await prisma.message.findMany({
+    where: { recipientId: userId },
+    include: {
+      sender: { select: { name: true, phoneNumber: true } },
+      ratings: true,
+      agrees: true,
+      comments: { include: { user: { select: { name: true } } } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export async function getOutgoingMessagesAction(userId: string) {
+  return await prisma.message.findMany({
+    where: { senderId: userId },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export async function updateMessageAction(messageId: string, content: string, actionPoint?: string) {
+  // Only allow if cooling off
+  const msg = await prisma.message.findUnique({ where: { id: messageId } });
+  if (msg && new Date(msg.availableAt) > new Date()) {
+    await prisma.message.update({
+      where: { id: messageId },
+      data: { content, actionPoint },
+    });
+    revalidatePath('/messages');
+  }
+}
+
+export async function deleteMessageAction(messageId: string) {
+  // Only allow if cooling off
+  const msg = await prisma.message.findUnique({ where: { id: messageId } });
+  if (msg && new Date(msg.availableAt) > new Date()) {
+    await prisma.message.delete({
+      where: { id: messageId },
+    });
+    revalidatePath('/messages');
+  }
 }
 
 export async function getPublicWallAction(userId: string) {
@@ -110,7 +139,6 @@ export async function getPublicWallAction(userId: string) {
     where: { 
       recipientId: userId,
       isPublic: true,
-      // status: 'DELIVERED' // implicity if public, it should be delivered usually?
     },
     include: {
       agrees: true,
@@ -128,35 +156,63 @@ export async function toggleMessagePublicAction(messageId: string, isPublic: boo
   revalidatePath('/profile');
 }
 
-export async function rateMessageAction(messageId: string, score: number, type: 'VALUE' | 'LOVE') {
-  // 1. Create Rating
-  await prisma.rating.create({
-    data: {
-      messageId,
-      score,
-      type,
-    }
+export async function rateMessageAction(messageId: string, score: number, type: 'VALUE' | 'SPIRIT') {
+  // Check if rating exists
+  const existingRating = await prisma.rating.findFirst({
+    where: { messageId }
   });
 
-  // 2. Update Sender's Score
-  // We need to find the message sender first
   const message = await prisma.message.findUnique({
     where: { id: messageId },
     select: { senderId: true }
   });
 
-  if (message) {
-    if (type === 'VALUE') {
-      await prisma.user.update({
-        where: { id: message.senderId },
-        data: { valueScore: { increment: score } }
-      });
-    } else {
-      await prisma.user.update({
-        where: { id: message.senderId },
-        data: { loveScore: { increment: score } }
-      });
+  if (existingRating) {
+    // Update existing
+    const scoreDiff = score - existingRating.score;
+    await prisma.rating.update({
+      where: { id: existingRating.id },
+      data: { score }
+    });
+
+    // Update User Score Diff
+    if (message) {
+      if (type === 'VALUE') {
+        await prisma.user.update({
+          where: { id: message.senderId },
+          data: { valueScore: { increment: scoreDiff } }
+        });
+      } else {
+        await prisma.user.update({
+          where: { id: message.senderId },
+          data: { spiritScore: { increment: scoreDiff } }
+        });
+      }
+    }
+
+  } else {
+    // Create new
+    await prisma.rating.create({
+      data: {
+        messageId,
+        score,
+        type,
+      }
+    });
+
+    if (message) {
+      if (type === 'VALUE') {
+        await prisma.user.update({
+          where: { id: message.senderId },
+          data: { valueScore: { increment: score } }
+        });
+      } else {
+        await prisma.user.update({
+          where: { id: message.senderId },
+          data: { spiritScore: { increment: score } }
+        });
+      }
     }
   }
+  revalidatePath('/inbox');
 }
-

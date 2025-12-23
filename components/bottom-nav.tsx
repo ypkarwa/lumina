@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, User, Search, PlusCircle } from "lucide-react";
+import { User, Search, PlusCircle, MessageSquare } from "lucide-react";
 
 export function BottomNav() {
   const pathname = usePathname();
 
-  // Hide nav on auth pages
-  if (pathname === '/login' || pathname === '/onboarding') {
+  // Hide nav on auth pages and welcome splash
+  if (pathname === '/login' || pathname === '/onboarding' || pathname === '/welcome') {
     return null;
   }
 
@@ -25,11 +25,11 @@ export function BottomNav() {
       </Link>
       
       <Link 
-        href="/search" 
-        className={`flex flex-col items-center gap-1 ${isActive('/search') ? 'text-indigo-600' : 'text-slate-400'}`}
+        href="/messages" 
+        className={`flex flex-col items-center gap-1 ${isActive('/messages') ? 'text-indigo-600' : 'text-slate-400'}`}
       >
-        <Search className="w-6 h-6" />
-        <span className="text-xs font-medium">Explore</span>
+        <MessageSquare className="w-6 h-6" />
+        <span className="text-xs font-medium">Messages</span>
       </Link>
       
       <Link 
@@ -38,6 +38,14 @@ export function BottomNav() {
       >
         <User className="w-6 h-6" />
         <span className="text-xs font-medium">Profile</span>
+      </Link>
+      
+      <Link 
+        href="/search" 
+        className={`flex flex-col items-center gap-1 ${isActive('/search') ? 'text-indigo-600' : 'text-slate-400'}`}
+      >
+        <Search className="w-6 h-6" />
+        <span className="text-xs font-medium">Explore</span>
       </Link>
     </div>
   );

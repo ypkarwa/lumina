@@ -1,54 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ThumbsUp, MessageSquare, Heart, Star, Send } from "lucide-react";
+import { ThumbsUp, MessageSquare, Heart, Star, Send, Loader2, User, Globe } from "lucide-react";
+import { searchUserAction, getPublicWallAction } from "@/app/actions";
+import { loadingQuotes, spiritQuotes, brandingQuotes, getRandomQuote } from "@/lib/quotes";
 
-// Mock Data for Public Wall
-const MOCK_PUBLIC_MESSAGES = [
-  {
-    id: '101',
-    content: "I realized I was micromanaging the design team. I'm trying to step back and trust their process more.",
-    type: 'feedback', // Self-reflection or feedback accepted
-    date: "2h ago",
-    agrees: 12,
-    comments: [
-      { id: 'c1', text: "Takes courage to admit that. Respect!", user: "Davide" }
-    ]
-  },
-  {
-    id: '102',
-    content: "Your presentation today was incredibly clear. The way you simplified the tech stack for the clients was genius.",
-    type: 'praise',
-    date: "1d ago",
-    agrees: 24,
-    comments: []
-  }
-];
+type PublicMessage = {
+  id: string;
+  content: string;
+  actionPoint: string | null;
+  type: string;
+  createdAt: Date;
+  agrees: { id: string }[];
+  comments: { id: string; content: string; user: { name: string | null } }[];
+};
+
+type UserData = {
+  id: string;
+  name: string | null;
+  phoneNumber: string;
+  valueScore: number;
+  spiritScore: number;
+};
 
 export default function UserWallPage() {
   const params = useParams();
-  const phone = params.phone as string; // in real app, fetch user by this
+  const phone = decodeURIComponent(params.phone as string);
   
-  const [messages, setMessages] = useState(MOCK_PUBLIC_MESSAGES);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [messages, setMessages] = useState<PublicMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [commentInputs, setCommentInputs] = useState<{[key: string]: string}>({});
 
+  useEffect(() => {
+    async function fetchData() {
+      setIsLoading(true);
+      try {
+        const user = await searchUserAction(phone);
+        if (user) {
+          setUserData(user as unknown as UserData);
+          const publicMsgs = await getPublicWallAction(user.id);
+          setMessages(publicMsgs as any);
+        }
+      } catch (error) {
+        console.error("Failed to fetch user data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchData();
+  }, [phone]);
+
   const handleAgree = (id: string) => {
-    setMessages(prev => prev.map(m => m.id === id ? { ...m, agrees: m.agrees + 1 } : m));
+    // For now, optimistic UI update (actual implementation would need server action)
+    setMessages(prev => prev.map(m => 
+      m.id === id ? { ...m, agrees: [...m.agrees, { id: `temp-${Date.now()}` }] } : m
+    ));
   };
 
   const handleComment = (id: string) => {
     const text = commentInputs[id];
     if (!text) return;
 
+    // For now, optimistic UI update (actual implementation would need server action)
     setMessages(prev => prev.map(m => {
       if (m.id === id) {
         return {
           ...m,
-          comments: [...m.comments, { id: `new-${Date.now()}`, text, user: "Me" }]
+          comments: [...m.comments, { id: `new-${Date.now()}`, content: text, user: { name: "Me" } }]
         };
       }
       return m;
@@ -56,37 +79,117 @@ export default function UserWallPage() {
     setCommentInputs(prev => ({ ...prev, [id]: "" }));
   };
 
+  // Client-side only random quotes to avoid hydration mismatch
+  const [loadingQuote, setLoadingQuote] = useState(loadingQuotes[0]);
+  const [spiritQuote, setSpiritQuote] = useState(spiritQuotes[0]);
+  const [brandingQuote, setBrandingQuote] = useState(brandingQuotes[0]);
+  
+  useEffect(() => {
+    setLoadingQuote(getRandomQuote(loadingQuotes));
+    setSpiritQuote(getRandomQuote(spiritQuotes));
+    setBrandingQuote(getRandomQuote(brandingQuotes));
+  }, []);
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-6" />
+        <p className="text-lg text-slate-600 italic text-center max-w-md">
+          "{loadingQuote.text}"
+        </p>
+        <p className="text-sm text-slate-400 mt-2">— {loadingQuote.author}</p>
+      </main>
+    );
+  }
+
+  if (!userData) {
+    return (
+      <main className="min-h-screen bg-slate-50 p-4 pb-20">
+        <div className="max-w-3xl mx-auto pt-20 text-center">
+          <div className="w-20 h-20 bg-slate-100 rounded-full mx-auto flex items-center justify-center mb-4">
+            <User className="w-10 h-10 text-slate-400" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">User Not Found</h1>
+          <p className="text-slate-500">
+            No user found with this phone number, or they haven't joined TereStats yet.
+          </p>
+          <p className="text-indigo-500 text-sm mt-4 font-medium">{brandingQuote.text}</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 p-4 pb-20">
       {/* Profile Header */}
       <div className="max-w-3xl mx-auto mb-8 pt-8 text-center">
         <div className="w-20 h-20 bg-indigo-100 rounded-full mx-auto flex items-center justify-center mb-4">
           <span className="text-2xl font-bold text-indigo-700">
-            {phone.slice(-2)}
+            {userData.name ? userData.name.charAt(0).toUpperCase() : "?"}
           </span>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900">User {phone}</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{userData.name || "Anonymous User"}</h1>
+        <p className="text-slate-500 text-sm">{userData.phoneNumber}</p>
         <div className="flex justify-center gap-6 mt-4">
           <div className="flex items-center gap-2 text-amber-700">
             <Star className="w-5 h-5 fill-current" />
-            <span className="font-bold">125 Value</span>
+            <span className="font-bold">{userData.valueScore} Value</span>
           </div>
           <div className="flex items-center gap-2 text-rose-700">
             <Heart className="w-5 h-5 fill-current" />
-            <span className="font-bold">84 Love</span>
+            <span className="font-bold">{userData.spiritScore} Spirit</span>
           </div>
+        </div>
+      </div>
+
+      {/* Spirit Quote */}
+      <div className="max-w-2xl mx-auto mb-6">
+        <div className="bg-gradient-to-r from-rose-50 to-amber-50 border border-rose-100 rounded-lg p-3 text-center">
+          <p className="text-sm text-slate-700 italic">
+            💫 "{spiritQuote.text}"
+          </p>
+          <p className="text-xs text-slate-500 mt-1">— {spiritQuote.author}</p>
         </div>
       </div>
 
       {/* Wall Feed */}
       <div className="max-w-2xl mx-auto space-y-6">
-        <h2 className="text-lg font-semibold text-slate-700 border-b pb-2">Wall of Growth</h2>
+        <h2 className="text-lg font-semibold text-slate-700 border-b pb-2 flex items-center gap-2">
+          <Globe className="w-5 h-5" />
+          Wall of Growth
+        </h2>
         
+        {messages.length === 0 && (
+          <div className="text-center py-10 text-slate-400">
+            <Globe className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+            <p>This user hasn't made anything public yet.</p>
+            <p className="text-indigo-500 text-sm mt-3 font-medium">{brandingQuote.text}</p>
+          </div>
+        )}
+
         {messages.map((msg) => (
           <Card key={msg.id} className="overflow-hidden">
-             <div className={`h-1 w-full ${msg.type === 'praise' ? 'bg-rose-500' : 'bg-amber-500'}`} />
+            <div className={`h-1 w-full ${msg.type === 'praise' ? 'bg-rose-500' : 'bg-amber-500'}`} />
             <CardContent className="pt-6">
-              <p className="text-lg text-slate-800 mb-6 font-medium">"{msg.content}"</p>
+              <div className="flex items-center gap-2 mb-3">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                  msg.type === 'praise' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
+                }`}>
+                  {msg.type}
+                </span>
+                <span className="text-xs text-slate-400">
+                  {new Date(msg.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+
+              <p className="text-lg text-slate-800 mb-4 font-medium">"{msg.content}"</p>
+              
+              {msg.actionPoint && (
+                <div className="bg-slate-50 p-3 rounded-md border border-slate-100 mb-4">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Action Step</span>
+                  <p className="text-sm text-slate-700">{msg.actionPoint}</p>
+                </div>
+              )}
               
               <div className="flex items-center gap-4 mb-6">
                 <Button 
@@ -96,22 +199,22 @@ export default function UserWallPage() {
                   className="gap-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                 >
                   <ThumbsUp className="w-4 h-4" />
-                  Agree ({msg.agrees})
+                  Agree ({msg.agrees?.length || 0})
                 </Button>
-                <div className="flex items-center gap-2 text-sm text-slate-400">
-                  <span className="w-1 h-1 rounded-full bg-slate-300" />
-                  {msg.date}
-                </div>
               </div>
 
               {/* Comments Section */}
               <div className="bg-slate-50 rounded-lg p-4 space-y-4">
-                {msg.comments.map(comment => (
-                  <div key={comment.id} className="text-sm">
-                    <span className="font-semibold text-slate-700">{comment.user}: </span>
-                    <span className="text-slate-600">{comment.text}</span>
+                {msg.comments && msg.comments.length > 0 && (
+                  <div className="space-y-2">
+                    {msg.comments.map(comment => (
+                      <div key={comment.id} className="text-sm">
+                        <span className="font-semibold text-slate-700">{comment.user?.name || "Someone"}: </span>
+                        <span className="text-slate-600">{comment.content}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
                 
                 <div className="flex gap-2 pt-2">
                   <Input 
@@ -133,4 +236,3 @@ export default function UserWallPage() {
     </main>
   );
 }
-

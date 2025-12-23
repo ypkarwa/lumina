@@ -60,7 +60,7 @@ export default function OnboardingPage() {
                 Everything here is transparent and built solely for the purpose of personal growth and connection.
               </p>
               <p>
-                Lumina is a tool, not a trap.
+                TereStats is a tool, not a trap.
               </p>
             </div>
 

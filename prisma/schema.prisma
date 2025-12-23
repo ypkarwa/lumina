@@ -19,7 +19,7 @@ model User {
   
   // Scores
   valueScore   Int      @default(0) // Gold Score (from Feedback/Advice)
-  loveScore    Int      @default(0) // Love Score (from Praises)
+  spiritScore  Int      @default(0) // Spirit Score (from Praises)
 
   // Monthly Stamp Quota (Resets monthly)
   praiseStamps   Int    @default(2)
@@ -31,6 +31,7 @@ model User {
   receivedMessages Message[] @relation("ReceivedMessages")
   comments         Comment[]
   agrees           Agree[]
+  polls            Poll[]
 }
 
 model Message {
@@ -52,7 +53,7 @@ model Message {
   availableAt DateTime // createdAt + 1 hour
 
   isPublic    Boolean  @default(false) // "Wall of Growth"
-  isAnonymous Boolean  @default(false) // Added for anonymous sending
+  isAnonymous Boolean  @default(false)
   
   ratings     Rating[]
   comments    Comment[]
@@ -76,8 +77,11 @@ model Comment {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   
-  messageId String
-  message   Message  @relation(fields: [messageId], references: [id])
+  messageId String?
+  message   Message?  @relation(fields: [messageId], references: [id])
+
+  pollId    String?
+  poll      Poll?     @relation(fields: [pollId], references: [id])
 }
 
 model Agree {
@@ -91,4 +95,26 @@ model Agree {
   message   Message  @relation(fields: [messageId], references: [id])
 
   @@unique([userId, messageId]) // One agree per user per message
+}
+
+model Poll {
+  id        String   @id @default(uuid())
+  question  String
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  answers   PollAnswer[]
+  comments  Comment[]
+}
+
+model PollAnswer {
+  id        String   @id @default(uuid())
+  answer    String
+  createdAt DateTime @default(now())
+  pollId    String
+  poll      Poll     @relation(fields: [pollId], references: [id])
+  
+  // Who answered? (Optional if anonymous)
+  responderPhone String? 
 }

@@ -25,34 +25,36 @@ export default function LoginPage() {
   useEffect(() => {
     if (step === 'PHONE' && typeof window !== 'undefined') {
       try {
-        if (!recaptchaVerifierRef.current) {
-            // Clear any existing instance to be safe
-            if (window.recaptchaVerifier) {
-                window.recaptchaVerifier.clear();
-            }
-            
-            recaptchaVerifierRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', {
-                'size': 'invisible',
-                'callback': () => {
-                   console.log("Recaptcha resolved");
-                }
-            });
-            window.recaptchaVerifier = recaptchaVerifierRef.current;
+        // If already initialized, don't re-initialize
+        if (recaptchaVerifierRef.current) {
+            return;
         }
+
+        // Cleanup any existing global verifier to prevent conflicts
+        if (window.recaptchaVerifier) {
+            try { window.recaptchaVerifier.clear(); } catch(e) {}
+        }
+        
+        const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            'size': 'invisible',
+            'callback': () => {
+               console.log("Recaptcha resolved");
+            }
+        });
+        
+        recaptchaVerifierRef.current = verifier;
+        window.recaptchaVerifier = verifier;
+
       } catch (e) {
         console.error("Recaptcha setup error:", e);
       }
     }
     
     return () => {
-        if (recaptchaVerifierRef.current) {
-            try {
-                recaptchaVerifierRef.current.clear();
-                recaptchaVerifierRef.current = null;
-            } catch (e) {
-                console.error("Failed to clear recaptcha", e);
-            }
-        }
+        // In dev (strict mode), this cleanup runs immediately. 
+        // We can choose NOT to clear it on unmount to survive the double-render, 
+        // or just accept that hot-reload might break it occasionally.
+        // For stability, let's NOT clear it here, but clear it before creating a new one above.
     }
   }, [step]);
 
@@ -62,25 +64,29 @@ export default function LoginPage() {
 
     try {
       if (!recaptchaVerifierRef.current) {
-        throw new Error("Recaptcha not initialized");
+         // Try to recover if ref is lost
+         if (window.recaptchaVerifier) {
+             recaptchaVerifierRef.current = window.recaptchaVerifier;
+         } else {
+             throw new Error("Recaptcha not initialized. Please refresh the page.");
+         }
       }
 
       const cleanPhone = phoneNumber.replace(/\D/g, '');
       const fullPhoneNumber = `${countryCode}${cleanPhone}`;
 
-      const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current);
+      const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current!);
       window.confirmationResult = confirmationResult;
       
       setStep("OTP");
     } catch (error: any) {
       console.error("Error sending OTP:", error);
-      // Detailed error alert
       alert(`Failed to send OTP: ${error.message || "Check console"}`);
       
+      // Don't force reload in dev, just clear to allow retry
       if (recaptchaVerifierRef.current) {
-          recaptchaVerifierRef.current.clear();
+          try { recaptchaVerifierRef.current.clear(); } catch(e) {}
           recaptchaVerifierRef.current = null;
-          window.location.reload(); 
       }
     } finally {
       setIsLoading(false);
@@ -95,14 +101,13 @@ export default function LoginPage() {
       const result = await window.confirmationResult.confirm(otp);
       const firebaseUser = result.user;
       
-      // Login and check if user has name
       const user = await login(firebaseUser.phoneNumber!);
       
       if (user) {
         if (user.name) {
-            router.push("/"); // Go to Dashboard if name exists
+            router.push("/welcome"); 
         } else {
-            router.push("/onboarding"); // Go to Onboarding if new user
+            router.push("/onboarding"); 
         }
       } else {
         alert("Login failed on server. Please try again.");
@@ -125,14 +130,15 @@ export default function LoginPage() {
           </div>
         </div>
         <h1 className="text-2xl md:text-4xl font-serif italic text-slate-800 leading-tight">
-          "It's morally wrong to let a praise go unheard."
+          "Do the best you can until you know better. Then when you know better, do better."
         </h1>
+        <p className="text-sm text-slate-500">— Maya Angelou</p>
       </div>
 
       <Card className="w-full max-w-md shadow-lg border-slate-100">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            {step === "PHONE" ? "Welcome to Lumina" : "Verify Identity"}
+            {step === "PHONE" ? "Welcome to TereStats" : "Verify Identity"}
           </CardTitle>
           <CardDescription className="text-center">
             {step === "PHONE" 

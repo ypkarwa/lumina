@@ -7,7 +7,7 @@ import { BottomNav } from "@/components/bottom-nav";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Lumina",
+  title: "TereStats",
   description: "Lighting up the blind spots we all share.",
 };
 

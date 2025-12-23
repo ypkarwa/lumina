@@ -10,6 +10,7 @@ import { Check, Send, AlertCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/app/context/auth-context";
 import { useRouter } from "next/navigation";
 import { sendMessageAction } from "./actions";
+import { loadingQuotes, feedbackQuotes, spiritQuotes, brandingQuotes, getRandomQuote } from "@/lib/quotes";
 
 export default function Home() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -63,10 +64,27 @@ export default function Home() {
     }
   };
 
+  // Client-side only random quotes to avoid hydration mismatch
+  const [loadingQuote, setLoadingQuote] = useState(loadingQuotes[0]);
+  const [feedbackPlaceholder, setFeedbackPlaceholder] = useState(feedbackQuotes[0]);
+  const [praisePlaceholder, setPraisePlaceholder] = useState(spiritQuotes[0]);
+  const [brandingQuote, setBrandingQuote] = useState(brandingQuotes[0]);
+  
+  useEffect(() => {
+    setLoadingQuote(getRandomQuote(loadingQuotes));
+    setFeedbackPlaceholder(getRandomQuote(feedbackQuotes));
+    setPraisePlaceholder(getRandomQuote(spiritQuotes));
+    setBrandingQuote(getRandomQuote(brandingQuotes));
+  }, []);
+
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-6" />
+        <p className="text-lg text-slate-600 italic text-center max-w-md">
+          "{loadingQuote.text}"
+        </p>
+        <p className="text-sm text-slate-400 mt-2">— {loadingQuote.author}</p>
       </main>
     );
   }
@@ -97,21 +115,15 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 md:p-8 pb-24">
       
-      {/* The Core Philosophy Quote OR Welcome Message */}
+      {/* The Core Philosophy Quote - Hanlon's Razor */}
       <div className="max-w-4xl text-center mb-12 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        {user?.name ? (
-            <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
-              Welcome back, <span className="text-indigo-600">{user.name}</span>.
-            </h1>
-        ) : (
-            <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
-            "Never attribute to malice what can be <br className="hidden md:block"/>
-            adequately explained by <span className="text-indigo-600">stupidity</span>."
-            </h1>
-        )}
+        <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
+          "Never attribute to malice what can be <br className="hidden md:block"/>
+          adequately explained by <span className="text-indigo-600">stupidity</span>."
+        </h1>
         
         <p className="text-muted-foreground text-lg italic">
-          — {user?.name ? "Ready to light up some blind spots?" : "Hanlon's Razor (and the spirit of Lumina)"}
+          — Hanlon's Razor (and the spirit of TereStats)
         </p>
       </div>
 
@@ -177,7 +189,7 @@ export default function Home() {
                 <option value="advice">Advice (Wisdom)</option>
               </select>
               <p className="text-xs text-muted-foreground">
-                {messageType === 'praise' && "Boosts their Love Score (Heart)."}
+                {messageType === 'praise' && "Boosts their Spirit Score (Heart)."}
                 {messageType === 'feedback' && "Boosts their Value Score (Gold)."}
                 {messageType === 'advice' && "Boosts their Value Score (Gold)."}
               </p>
@@ -186,6 +198,16 @@ export default function Home() {
             {/* Row 3: The Message (Big Box) */}
             <div className="space-y-2">
               <Label htmlFor="message">The Message</Label>
+              {messageType === 'feedback' && (
+                <p className="text-xs text-slate-500 italic bg-amber-50 p-2 rounded-md border border-amber-100">
+                  💡 "{feedbackPlaceholder.text}" — {feedbackPlaceholder.author}
+                </p>
+              )}
+              {messageType === 'praise' && (
+                <p className="text-xs text-slate-500 italic bg-rose-50 p-2 rounded-md border border-rose-100">
+                  💫 "{praisePlaceholder.text}" — {praisePlaceholder.author}
+                </p>
+              )}
               <Textarea 
                 id="message" 
                 name="message"
@@ -263,8 +285,9 @@ export default function Home() {
 
           </form>
         </CardContent>
-        <CardFooter className="bg-slate-50 text-xs text-center text-muted-foreground p-4 rounded-b-xl border-t">
-          Messages are held for 1 hour before delivery.
+        <CardFooter className="bg-slate-50 text-xs text-center text-muted-foreground p-4 rounded-b-xl border-t flex flex-col gap-1">
+          <span>Messages are held for 1 hour before delivery.</span>
+          <span className="text-indigo-500 font-medium">{brandingQuote.text}</span>
         </CardFooter>
       </Card>
     </main>
