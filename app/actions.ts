@@ -11,11 +11,25 @@ export async function loginUserAction(phoneNumber: string) {
     where: { phoneNumber },
   });
 
+  const isNewUser = !user;
+
   if (!user) {
     user = await prisma.user.create({
       data: { phoneNumber },
     });
   }
+
+  // Link any orphan messages sent to this phone number before they registered
+  // This ensures messages sent to unregistered users are visible when they sign up
+  await prisma.message.updateMany({
+    where: {
+      recipientPhone: phoneNumber,
+      recipientId: null,
+    },
+    data: {
+      recipientId: user.id,
+    },
+  });
 
   return user;
 }
