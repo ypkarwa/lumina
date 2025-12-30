@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Send, AlertCircle, Loader2 } from "lucide-react";
+import { Check, Send, AlertCircle, Loader2, Contact, Mic, MicOff } from "lucide-react";
 import { useAuth } from "@/app/context/auth-context";
 import { useRouter } from "next/navigation";
 import { sendMessageAction } from "./actions";
@@ -24,6 +24,123 @@ export default function Home() {
   // Phone Inputs
   const [countryCode, setCountryCode] = useState("+91");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+  const [hasContactPicker, setHasContactPicker] = useState(false);
+  
+  // Message & Speech-to-Text
+  const [messageContent, setMessageContent] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [hasSpeechRecognition, setHasSpeechRecognition] = useState(false);
+
+  // Check if Contact Picker API is supported
+  useEffect(() => {
+    if ('contacts' in navigator && 'ContactsManager' in window) {
+      setHasContactPicker(true);
+    }
+  }, []);
+
+  // Check if Speech Recognition is supported
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      setHasSpeechRecognition(true);
+    }
+  }, []);
+
+  // Handle speech-to-text
+  const handleSpeechToText = () => {
+    // @ts-expect-error - Speech Recognition API types
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-IN'; // English (India), supports Hindi words too
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: { resultIndex: number; results: { isFinal: boolean; 0: { transcript: string } }[] }) => {
+      let finalTranscript = '';
+      
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript;
+        }
+      }
+      
+      if (finalTranscript) {
+        setMessageContent(prev => prev + (prev ? ' ' : '') + finalTranscript);
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    // Store recognition instance to stop later
+    // @ts-expect-error - attaching to window for access
+    window.currentRecognition = recognition;
+    recognition.start();
+  };
+
+  const stopListening = () => {
+    // @ts-expect-error - accessing from window
+    if (window.currentRecognition) {
+      // @ts-expect-error - accessing from window
+      window.currentRecognition.stop();
+    }
+    setIsListening(false);
+  };
+
+  // Handle contact selection
+  const handlePickContact = async () => {
+    try {
+      // @ts-expect-error - Contact Picker API types not in standard lib
+      const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+      if (contacts && contacts.length > 0) {
+        const contact = contacts[0];
+        
+        // Set name if available
+        if (contact.name && contact.name.length > 0) {
+          setRecipientName(contact.name[0]);
+        }
+        
+        // Set phone if available
+        if (contact.tel && contact.tel.length > 0) {
+          let phone = contact.tel[0].replace(/[\s\-\(\)]/g, '');
+          
+          // Extract country code if present
+          if (phone.startsWith('+')) {
+            // Try to match common country codes
+            if (phone.startsWith('+91') && phone.length > 12) {
+              setCountryCode('+91');
+              phone = phone.slice(3);
+            } else if (phone.startsWith('+1') && phone.length > 11) {
+              setCountryCode('+1');
+              phone = phone.slice(2);
+            } else if (phone.startsWith('+44') && phone.length > 12) {
+              setCountryCode('+44');
+              phone = phone.slice(3);
+            } else {
+              // Keep as is, strip the +
+              phone = phone.slice(1);
+            }
+          }
+          setPhoneNumber(phone);
+        }
+      }
+    } catch (error) {
+      console.log('Contact picker cancelled or error:', error);
+    }
+  };
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -54,6 +171,8 @@ export default function Home() {
       setIsSent(true);
       setTimeout(() => setIsSent(false), 3000);
       setPhoneNumber("");
+      setRecipientName("");
+      setMessageContent("");
       (e.target as HTMLFormElement).reset();
       setIsAware(false);
     } catch (error) {
@@ -146,7 +265,14 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Recipient Name</Label>
-                <Input name="name" id="name" placeholder="e.g. Alex" required />
+                <Input 
+                  name="name" 
+                  id="name" 
+                  placeholder="e.g. Alex" 
+                  required 
+                  value={recipientName}
+                  onChange={(e) => setRecipientName(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
@@ -170,6 +296,18 @@ export default function Home() {
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     className="flex-1"
                   />
+                  {hasContactPicker && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="icon"
+                      onClick={handlePickContact}
+                      title="Pick from contacts"
+                      className="shrink-0"
+                    >
+                      <Contact className="w-4 h-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -197,7 +335,30 @@ export default function Home() {
 
             {/* Row 3: The Message (Big Box) */}
             <div className="space-y-2">
-              <Label htmlFor="message">The Message</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="message">The Message</Label>
+                {hasSpeechRecognition && (
+                  <Button
+                    type="button"
+                    variant={isListening ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={isListening ? stopListening : handleSpeechToText}
+                    className="gap-1.5"
+                  >
+                    {isListening ? (
+                      <>
+                        <MicOff className="w-4 h-4" />
+                        Stop
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="w-4 h-4" />
+                        Speak
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
               {messageType === 'feedback' && (
                 <p className="text-xs text-slate-500 italic bg-amber-50 p-2 rounded-md border border-amber-100">
                   💡 "{feedbackPlaceholder.text}" — {feedbackPlaceholder.author}
@@ -213,19 +374,29 @@ export default function Home() {
                   🧭 "{advicePlaceholder.text}" — {advicePlaceholder.author}
                 </p>
               )}
-              <Textarea 
-                id="message" 
-                name="message"
-                placeholder={
-                  messageType === 'feedback' 
-                    ? "I noticed [Behavior]. I believe it affects [Impact]..." 
-                    : messageType === 'advice'
-                    ? "I think you might benefit from..."
-                    : "I really appreciated when you..."
-                }
-                className="min-h-[150px] resize-y text-base"
-                required
-              />
+              <div className="relative">
+                <Textarea 
+                  id="message" 
+                  name="message"
+                  placeholder={
+                    messageType === 'feedback' 
+                      ? "I noticed [Behavior]. I believe it affects [Impact]..." 
+                      : messageType === 'advice'
+                      ? "I think you might benefit from..."
+                      : "I really appreciated when you..."
+                  }
+                  className={`min-h-[150px] resize-y text-base ${isListening ? 'border-red-400 ring-2 ring-red-200' : ''}`}
+                  required
+                  value={messageContent}
+                  onChange={(e) => setMessageContent(e.target.value)}
+                />
+                {isListening && (
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5 text-xs text-red-500 bg-white px-2 py-1 rounded-full shadow-sm border border-red-200">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    Listening...
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Row 4: Action Points (Smaller Box) */}
