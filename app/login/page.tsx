@@ -21,61 +21,46 @@ export default function LoginPage() {
   const router = useRouter();
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
-  // Initialize Recaptcha on mount
+  // Cleanup recaptcha on unmount
   useEffect(() => {
-    if (step === 'PHONE' && typeof window !== 'undefined') {
-      try {
-        // If already initialized, don't re-initialize
-        if (recaptchaVerifierRef.current) {
-            return;
-        }
-
-        // Cleanup any existing global verifier to prevent conflicts
-        if (window.recaptchaVerifier) {
-            try { window.recaptchaVerifier.clear(); } catch(e) {}
-        }
-        
-        const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            'size': 'invisible',
-            'callback': () => {
-               console.log("Recaptcha resolved");
-            }
-        });
-        
-        recaptchaVerifierRef.current = verifier;
-        window.recaptchaVerifier = verifier;
-
-      } catch (e) {
-        console.error("Recaptcha setup error:", e);
-      }
-    }
-    
     return () => {
-        // In dev (strict mode), this cleanup runs immediately. 
-        // We can choose NOT to clear it on unmount to survive the double-render, 
-        // or just accept that hot-reload might break it occasionally.
-        // For stability, let's NOT clear it here, but clear it before creating a new one above.
-    }
-  }, [step]);
+      if (recaptchaVerifierRef.current) {
+        try { recaptchaVerifierRef.current.clear(); } catch(e) {}
+      }
+    };
+  }, []);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      if (!recaptchaVerifierRef.current) {
-         // Try to recover if ref is lost
-         if (window.recaptchaVerifier) {
-             recaptchaVerifierRef.current = window.recaptchaVerifier;
-         } else {
-             throw new Error("Recaptcha not initialized. Please refresh the page.");
-         }
+      // Always create a fresh recaptcha verifier for each attempt
+      if (recaptchaVerifierRef.current) {
+        try { recaptchaVerifierRef.current.clear(); } catch(e) {}
       }
+      if (window.recaptchaVerifier) {
+        try { window.recaptchaVerifier.clear(); } catch(e) {}
+      }
+
+      const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        'size': 'invisible',
+        'callback': () => {
+          console.log("Recaptcha resolved");
+        },
+        'expired-callback': () => {
+          console.log("Recaptcha expired");
+        }
+      });
+      
+      recaptchaVerifierRef.current = verifier;
+      window.recaptchaVerifier = verifier;
 
       const cleanPhone = phoneNumber.replace(/\D/g, '');
       const fullPhoneNumber = `${countryCode}${cleanPhone}`;
 
-      const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifierRef.current!);
+      console.log("Sending OTP to:", fullPhoneNumber);
+      const confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, verifier);
       window.confirmationResult = confirmationResult;
       
       setStep("OTP");
@@ -83,7 +68,7 @@ export default function LoginPage() {
       console.error("Error sending OTP:", error);
       alert(`Failed to send OTP: ${error.message || "Check console"}`);
       
-      // Don't force reload in dev, just clear to allow retry
+      // Clear for retry
       if (recaptchaVerifierRef.current) {
           try { recaptchaVerifierRef.current.clear(); } catch(e) {}
           recaptchaVerifierRef.current = null;

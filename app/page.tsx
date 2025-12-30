@@ -10,7 +10,7 @@ import { Check, Send, AlertCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/app/context/auth-context";
 import { useRouter } from "next/navigation";
 import { sendMessageAction } from "./actions";
-import { loadingQuotes, feedbackQuotes, spiritQuotes, brandingQuotes, getRandomQuote } from "@/lib/quotes";
+import { loadingQuotes, feedbackQuotes, spiritQuotes, getRandomQuote } from "@/lib/quotes";
 
 export default function Home() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -68,13 +68,13 @@ export default function Home() {
   const [loadingQuote, setLoadingQuote] = useState(loadingQuotes[0]);
   const [feedbackPlaceholder, setFeedbackPlaceholder] = useState(feedbackQuotes[0]);
   const [praisePlaceholder, setPraisePlaceholder] = useState(spiritQuotes[0]);
-  const [brandingQuote, setBrandingQuote] = useState(brandingQuotes[0]);
+  const [advicePlaceholder, setAdvicePlaceholder] = useState(feedbackQuotes[0]);
   
   useEffect(() => {
     setLoadingQuote(getRandomQuote(loadingQuotes));
     setFeedbackPlaceholder(getRandomQuote(feedbackQuotes));
     setPraisePlaceholder(getRandomQuote(spiritQuotes));
-    setBrandingQuote(getRandomQuote(brandingQuotes));
+    setAdvicePlaceholder(getRandomQuote(feedbackQuotes));
   }, []);
 
   if (isLoading) {
@@ -208,12 +208,19 @@ export default function Home() {
                   💫 "{praisePlaceholder.text}" — {praisePlaceholder.author}
                 </p>
               )}
+              {messageType === 'advice' && (
+                <p className="text-xs text-slate-500 italic bg-indigo-50 p-2 rounded-md border border-indigo-100">
+                  🧭 "{advicePlaceholder.text}" — {advicePlaceholder.author}
+                </p>
+              )}
               <Textarea 
                 id="message" 
                 name="message"
                 placeholder={
                   messageType === 'feedback' 
                     ? "I noticed [Behavior]. I believe it affects [Impact]..." 
+                    : messageType === 'advice'
+                    ? "I think you might benefit from..."
                     : "I really appreciated when you..."
                 }
                 className="min-h-[150px] resize-y text-base"
@@ -285,9 +292,8 @@ export default function Home() {
 
           </form>
         </CardContent>
-        <CardFooter className="bg-slate-50 text-xs text-center text-muted-foreground p-4 rounded-b-xl border-t flex flex-col gap-1">
-          <span>Messages are held for 1 hour before delivery.</span>
-          <span className="text-indigo-500 font-medium">{brandingQuote.text}</span>
+        <CardFooter className="bg-slate-50 text-xs text-center text-muted-foreground p-4 rounded-b-xl border-t">
+          Messages are held for 1 hour before delivery.
         </CardFooter>
       </Card>
     </main>

@@ -1,25 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Globe } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { spiritQuotes, brandingQuotes, getRandomQuote } from "@/lib/quotes";
 
 export default function SearchPage() {
   const [countryCode, setCountryCode] = useState("+91");
   const [phoneNumber, setPhoneNumber] = useState("");
   const router = useRouter();
-  
-  // Client-side only random quotes to avoid hydration mismatch
-  const [spiritQuote, setSpiritQuote] = useState(spiritQuotes[0]);
-  const [brandingQuote, setBrandingQuote] = useState(brandingQuotes[0]);
-  
-  useEffect(() => {
-    setSpiritQuote(getRandomQuote(spiritQuotes));
-    setBrandingQuote(getRandomQuote(brandingQuotes));
-  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,18 +61,9 @@ export default function SearchPage() {
           </Button>
         </form>
 
-        {/* Spirit Quote */}
-        <div className="bg-gradient-to-r from-rose-50 to-amber-50 border border-rose-100 rounded-lg p-4 text-center">
-          <p className="text-sm text-slate-700 italic">
-            💫 "{spiritQuote.text}"
-          </p>
-          <p className="text-xs text-slate-500 mt-1">— {spiritQuote.author}</p>
-        </div>
-
         <div className="text-center text-sm text-slate-400">
           <p>You can only see what people choose to make public.</p>
           <p className="mt-1">Privacy is respected.</p>
-          <p className="text-indigo-500 text-sm mt-3 font-medium">{brandingQuote.text}</p>
         </div>
       </div>
     </main>

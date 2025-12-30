@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { sendWhatsAppNotification, getNewMessageNotification } from "@/lib/wasender";
 
 // --- User Actions ---
 
@@ -61,8 +62,14 @@ export async function sendMessageAction(data: {
     where: { phoneNumber: data.recipientPhone },
   });
 
-  // Calculate availability time (1 hour from now)
-  const availableAt = new Date(Date.now() + 60 * 60 * 1000); 
+  // Get sender info for notification
+  const sender = await prisma.user.findUnique({
+    where: { id: data.senderId },
+    select: { name: true },
+  });
+
+  // Calculate availability time (10 minutes)
+  const availableAt = new Date(Date.now() + 10 * 60 * 1000);
 
   const message = await prisma.message.create({
     data: {
@@ -76,6 +83,21 @@ export async function sendMessageAction(data: {
       isAnonymous: data.isAnonymous,
     },
   });
+
+  // Send WhatsApp notification to recipient
+  // Don't await - fire and forget to avoid blocking the response
+  const senderName = data.isAnonymous ? undefined : sender?.name || undefined;
+  const notificationMessage = getNewMessageNotification(senderName);
+  
+  sendWhatsAppNotification(data.recipientPhone, notificationMessage)
+    .then((result) => {
+      if (!result.success) {
+        console.error("Failed to send WhatsApp notification:", result.error);
+      }
+    })
+    .catch((err) => {
+      console.error("WhatsApp notification error:", err);
+    });
 
   return message;
 }

@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThumbsUp, MessageSquare, Heart, Star, Send, Loader2, User, Globe } from "lucide-react";
 import { searchUserAction, getPublicWallAction } from "@/app/actions";
-import { loadingQuotes, spiritQuotes, brandingQuotes, getRandomQuote } from "@/lib/quotes";
 
 type PublicMessage = {
   id: string;
@@ -56,7 +55,6 @@ export default function UserWallPage() {
   }, [phone]);
 
   const handleAgree = (id: string) => {
-    // For now, optimistic UI update (actual implementation would need server action)
     setMessages(prev => prev.map(m => 
       m.id === id ? { ...m, agrees: [...m.agrees, { id: `temp-${Date.now()}` }] } : m
     ));
@@ -66,7 +64,6 @@ export default function UserWallPage() {
     const text = commentInputs[id];
     if (!text) return;
 
-    // For now, optimistic UI update (actual implementation would need server action)
     setMessages(prev => prev.map(m => {
       if (m.id === id) {
         return {
@@ -79,25 +76,10 @@ export default function UserWallPage() {
     setCommentInputs(prev => ({ ...prev, [id]: "" }));
   };
 
-  // Client-side only random quotes to avoid hydration mismatch
-  const [loadingQuote, setLoadingQuote] = useState(loadingQuotes[0]);
-  const [spiritQuote, setSpiritQuote] = useState(spiritQuotes[0]);
-  const [brandingQuote, setBrandingQuote] = useState(brandingQuotes[0]);
-  
-  useEffect(() => {
-    setLoadingQuote(getRandomQuote(loadingQuotes));
-    setSpiritQuote(getRandomQuote(spiritQuotes));
-    setBrandingQuote(getRandomQuote(brandingQuotes));
-  }, []);
-
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-6" />
-        <p className="text-lg text-slate-600 italic text-center max-w-md">
-          "{loadingQuote.text}"
-        </p>
-        <p className="text-sm text-slate-400 mt-2">— {loadingQuote.author}</p>
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
       </main>
     );
   }
@@ -113,7 +95,6 @@ export default function UserWallPage() {
           <p className="text-slate-500">
             No user found with this phone number, or they haven't joined TereStats yet.
           </p>
-          <p className="text-indigo-500 text-sm mt-4 font-medium">{brandingQuote.text}</p>
         </div>
       </main>
     );
@@ -142,16 +123,6 @@ export default function UserWallPage() {
         </div>
       </div>
 
-      {/* Spirit Quote */}
-      <div className="max-w-2xl mx-auto mb-6">
-        <div className="bg-gradient-to-r from-rose-50 to-amber-50 border border-rose-100 rounded-lg p-3 text-center">
-          <p className="text-sm text-slate-700 italic">
-            💫 "{spiritQuote.text}"
-          </p>
-          <p className="text-xs text-slate-500 mt-1">— {spiritQuote.author}</p>
-        </div>
-      </div>
-
       {/* Wall Feed */}
       <div className="max-w-2xl mx-auto space-y-6">
         <h2 className="text-lg font-semibold text-slate-700 border-b pb-2 flex items-center gap-2">
@@ -163,7 +134,6 @@ export default function UserWallPage() {
           <div className="text-center py-10 text-slate-400">
             <Globe className="w-12 h-12 mx-auto mb-3 text-slate-300" />
             <p>This user hasn't made anything public yet.</p>
-            <p className="text-indigo-500 text-sm mt-3 font-medium">{brandingQuote.text}</p>
           </div>
         )}
 

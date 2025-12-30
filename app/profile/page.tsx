@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Heart, Star, Globe, LayoutGrid, HelpCircle, ThumbsUp, MessageSquare, LogOut, Loader2, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getMyMessagesAction, getUserStatsAction } from "@/app/actions";
-import { loadingQuotes, spiritQuotes, brandingQuotes, getRandomQuote } from "@/lib/quotes";
 
 type Message = {
   id: string;
@@ -66,25 +65,10 @@ export default function ProfilePage() {
     fetchData();
   }, [user?.id]);
 
-  // Client-side only random quotes to avoid hydration mismatch
-  const [loadingQuote, setLoadingQuote] = useState(loadingQuotes[0]);
-  const [spiritQuote, setSpiritQuote] = useState(spiritQuotes[0]);
-  const [brandingQuote, setBrandingQuote] = useState(brandingQuotes[0]);
-  
-  useEffect(() => {
-    setLoadingQuote(getRandomQuote(loadingQuotes));
-    setSpiritQuote(getRandomQuote(spiritQuotes));
-    setBrandingQuote(getRandomQuote(brandingQuotes));
-  }, []);
-
   if (isAuthLoading || (isAuthenticated && isDataLoading)) {
     return (
-      <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-6" />
-        <p className="text-lg text-slate-600 italic text-center max-w-md">
-          "{loadingQuote.text}"
-        </p>
-        <p className="text-sm text-slate-400 mt-2">— {loadingQuote.author}</p>
+      <main className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
       </main>
     );
   }
@@ -107,7 +91,7 @@ export default function ProfilePage() {
         </div>
         
         {/* Scores */}
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-2 gap-4 mb-8">
           <Card className="bg-amber-50 border-amber-200">
             <CardContent className="p-4 flex flex-col items-center text-center">
               <Star className="w-6 h-6 text-amber-500 mb-1 fill-current" />
@@ -123,14 +107,6 @@ export default function ProfilePage() {
               <div className="text-xs font-medium text-rose-700">Spirit Score</div>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Spirit Quote */}
-        <div className="bg-gradient-to-r from-rose-50 to-amber-50 border border-rose-100 rounded-lg p-3 mb-8 text-center">
-          <p className="text-sm text-slate-700 italic">
-            💫 "{spiritQuote.text}"
-          </p>
-          <p className="text-xs text-slate-500 mt-1">— {spiritQuote.author}</p>
         </div>
 
         {/* Navigation Tabs */}
@@ -167,7 +143,6 @@ export default function ProfilePage() {
                 <Globe className="w-12 h-12 mx-auto mb-3 text-slate-300" />
                 <p>Nothing on your wall yet.</p>
                 <p className="text-sm mt-1">Go to Messages → Incoming to make feedback public.</p>
-                <p className="text-indigo-500 text-sm mt-3 font-medium">{brandingQuote.text}</p>
               </div>
             )}
 

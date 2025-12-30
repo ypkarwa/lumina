@@ -20,7 +20,7 @@ import {
   updateMessageAction,
   deleteMessageAction
 } from "@/app/actions";
-import { loadingQuotes, inboxQuotes, brandingQuotes, getRandomQuote } from "@/lib/quotes";
+import { loadingQuotes, inboxQuotes, getRandomQuote } from "@/lib/quotes";
 
 type IncomingMessage = {
   id: string;
@@ -94,12 +94,10 @@ export default function MessagesPage() {
   // Client-side only random quotes to avoid hydration mismatch
   const [loadingQuote, setLoadingQuote] = useState(loadingQuotes[0]);
   const [inboxQuote, setInboxQuote] = useState(inboxQuotes[0]);
-  const [brandingQuote, setBrandingQuote] = useState(brandingQuotes[0]);
   
   useEffect(() => {
     setLoadingQuote(getRandomQuote(loadingQuotes));
     setInboxQuote(getRandomQuote(inboxQuotes));
-    setBrandingQuote(getRandomQuote(brandingQuotes));
   }, []);
 
   if (isAuthLoading || (isAuthenticated && isDataLoading)) {
@@ -217,8 +215,7 @@ export default function MessagesPage() {
 
             {incomingMessages.length === 0 && (
               <div className="text-center py-10 text-slate-400">
-                <p>No messages received yet.</p>
-                <p className="text-indigo-500 text-sm mt-2 font-medium">{brandingQuote.text}</p>
+                No messages received yet.
               </div>
             )}
 
@@ -481,8 +478,7 @@ export default function MessagesPage() {
 
             {outgoingMessages.length === 0 && (
               <div className="text-center py-10 text-slate-400">
-                <p>You haven't sent any messages yet.</p>
-                <p className="text-indigo-500 text-sm mt-2 font-medium">{brandingQuote.text}</p>
+                You haven't sent any messages yet.
               </div>
             )}
           </div>
