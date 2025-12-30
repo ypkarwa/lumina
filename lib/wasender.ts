@@ -56,9 +56,11 @@ export async function sendWhatsAppNotification(
 
 // Predefined notification templates
 export function getNewMessageNotification(senderName?: string): string {
-  if (senderName) {
-    return `🌟 *TereStats*\n\n${senderName} has sent you a message!\n\nIt will only be visible to you in *10 minutes*.\n\nLog in to check it out:\n👉 https://terestats.com`;
-  }
-  return `🌟 *TereStats*\n\nSomeone has sent you a message!\n\nIt will only be visible to you in *10 minutes*.\n\nLog in to check it out:\n👉 https://terestats.com`;
+  const sender = senderName || "Someone";
+  return `${sender} has sent you a message on *TereStats*.
+
+TereStats is where honest feedback, praise, and advice are shared to help people grow. No spam, no ads—just real words from real people.
+
+There's a cooling period of 10 mins for them to edit/delete the message. Check terestats.com in 10 min to read it.`;
 }
 
