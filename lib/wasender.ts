@@ -57,8 +57,8 @@ export async function sendWhatsAppNotification(
 // Predefined notification templates
 export function getNewMessageNotification(senderName?: string): string {
   if (senderName) {
-    return `🌟 *TereStats*\n\n${senderName} has sent you a message!\n\nLog in to check it out:\n👉 https://terestats.com`;
+    return `🌟 *TereStats*\n\n${senderName} has sent you a message!\n\nIt will only be visible to you in *10 minutes*.\n\nLog in to check it out:\n👉 https://terestats.com`;
   }
-  return `🌟 *TereStats*\n\nSomeone has sent you a message!\n\nLog in to check it out:\n👉 https://terestats.com`;
+  return `🌟 *TereStats*\n\nSomeone has sent you a message!\n\nIt will only be visible to you in *10 minutes*.\n\nLog in to check it out:\n👉 https://terestats.com`;
 }
 

@@ -2,18 +2,20 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { loginUserAction, updateUserNameAction } from "@/app/actions";
+import { loginUserAction, updateUserNameAction, completeTourAction } from "@/app/actions";
 
 interface User {
   id: string;
   phoneNumber: string;
-  name?: string | null; // Prisma can return null
+  name?: string | null;
+  tourCompleted?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (phoneNumber: string) => Promise<User | null>;
   updateName: (name: string) => Promise<void>;
+  completeTour: () => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -68,6 +70,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const completeTour = async () => {
+    if (user) {
+      try {
+        await completeTourAction(user.id);
+        const updatedUser = { ...user, tourCompleted: true };
+        setUser(updatedUser);
+        localStorage.setItem("lumina_user", JSON.stringify(updatedUser));
+      } catch (error) {
+        console.error("Failed to complete tour:", error);
+      }
+    }
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem("lumina_user");
@@ -75,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, updateName, logout, isAuthenticated: !!user, isLoading }}>
+    <AuthContext.Provider value={{ user, login, updateName, completeTour, logout, isAuthenticated: !!user, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

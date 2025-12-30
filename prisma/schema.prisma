@@ -26,6 +26,9 @@ model User {
   feedbackStamps Int    @default(1)
   adviceStamps   Int    @default(1)
 
+  // Onboarding
+  tourCompleted  Boolean @default(false) // Has user completed the app tour?
+
   // Relations
   sentMessages     Message[] @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
@@ -50,10 +53,11 @@ model Message {
   // Trust & Safety
   status      String   @default("COOLING_OFF") // COOLING_OFF, DELIVERED, RETRACTED
   createdAt   DateTime @default(now())
-  availableAt DateTime // createdAt + 1 hour
+  availableAt DateTime // createdAt + 10 minutes
 
   isPublic    Boolean  @default(false) // "Wall of Growth"
   isAnonymous Boolean  @default(false)
+  notificationSent Boolean @default(false) // WhatsApp notification sent after cooling
   
   ratings     Rating[]
   comments    Comment[]

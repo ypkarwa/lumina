@@ -48,6 +48,13 @@ export async function searchUserAction(phoneNumber: string) {
   });
 }
 
+export async function completeTourAction(userId: string) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { tourCompleted: true },
+  });
+}
+
 // --- Message Actions ---
 
 export async function sendMessageAction(data: {
@@ -81,11 +88,11 @@ export async function sendMessageAction(data: {
       recipientId: recipient?.id,
       availableAt: availableAt,
       isAnonymous: data.isAnonymous,
+      notificationSent: true,
     },
   });
 
-  // Send WhatsApp notification to recipient
-  // Don't await - fire and forget to avoid blocking the response
+  // Send WhatsApp notification immediately (message says it'll be visible in 10 mins)
   const senderName = data.isAnonymous ? undefined : sender?.name || undefined;
   const notificationMessage = getNewMessageNotification(senderName);
   

@@ -101,7 +101,7 @@ export default function Home() {
              </div>
              <h2 className="text-2xl font-bold text-green-800">Sent to the Tank!</h2>
              <p className="text-green-700">
-               Your message is cooling off. It will be delivered in 1 hour if you don't retract it.
+               Your message is cooling off. It will be delivered in 10 minutes if you don't retract it.
              </p>
              <Button onClick={() => setIsSent(false)} variant="outline" className="mt-4 border-green-600 text-green-700 hover:bg-green-100">
                Send Another
@@ -293,7 +293,7 @@ export default function Home() {
           </form>
         </CardContent>
         <CardFooter className="bg-slate-50 text-xs text-center text-muted-foreground p-4 rounded-b-xl border-t">
-          Messages are held for 1 hour before delivery.
+          Messages are held for 10 minutes before delivery.
         </CardFooter>
       </Card>
     </main>
